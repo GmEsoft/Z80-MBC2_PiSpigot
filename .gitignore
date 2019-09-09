@@ -1,0 +1,11 @@
+*.bin
+
+*.DAT
+
+*.bak
+
+*.exe
+
+/PiSpigot/PiSpigot
+
+/PiSpigot/zmac
