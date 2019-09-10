@@ -1,13 +1,8 @@
 # Z80-MBC2_PiSpigot
 
-Compute up to 4837 digits of Pi using the Spigot algorithm, in Z-80 Assembly Language, for the Z80-MBC2 board.
+Compute up to 4837 digits of Pi using the Spigot algorithm, in Z-80 Assembly Language, for the [Z80-MBC2](https://hackaday.io/project/159973-z80-mbc2-4ics-homemade-z80-computer) board.
 
-    Visit https://hackaday.io/project/159973-z80-mbc2-4ics-homemade-z80-computer
-
-This code, entirely written in Z-80 Assembly Language, computes the first thousands of decimals of the number Pi. This code is a transposition of Stanley Rabinowitz's Pascal implementaion of the Spigot algorithm to compute Pi:
-
-    Visit https://rosettacode.org/wiki/Pi#Pascal
-
+This code, entirely written in Z-80 Assembly Language, computes the first thousands of decimals of the number Pi. This code is a transposition of [Stanley Rabinowitz's Pascal implementaion](https://rosettacode.org/wiki/Pi#Pascal) of the Spigot algorithm to compute Pi:
 
 ```
 Program Pi_Spigot;
