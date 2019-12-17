@@ -11,7 +11,7 @@
 ;-----------------------------------------------------------------------------
 ; 	Title
 $TITLE	MACRO
-	DB	'Pi Spigot - Ver:1.10 - Dec-2019'
+	DB	'Pi Spigot - Ver:1.20 - Dec-2019'
 	ENDM
 
 ;-----------------------------------------------------------------------------
@@ -169,12 +169,31 @@ DIVJ2:	SRL	B			; Shift right divisor
 ;	Long Div HL by DE
 LDIVHLDE:
 ;	Scale divisor
-	XOR	A			; Init loop counter
+	LD	B,4			; Non-null dividend byte counter
 	EX	DE,HL			; Divisor to HL, low word
 	EXX				;
 	EX	DE,HL			; idem, high word
+	LD	A,D			; Get dividend high byte (3)
+	OR	A			; Check it
+	LD	A,E			; Get dividend next byte (2)
 	EXX				;
-LDIVL1	INC	A			; Inc counter
+	JR	NZ,LDIVJ0		; Go if divid high byte is not null
+	DEC	B			; dec byte counter
+	OR	A			; Check divid next byte (2)
+	JR	NZ,LDIVJ0		; Go if divid next byte (2) is not null
+	DEC	B			; dec byte counter
+	OR	D			; Check divid next byte (1)
+	JR	NZ,LDIVJ0		; Go if divid next byte (1) is not null
+	DEC	B			; dec byte counter
+LDIVJ0	LD	A,B			; mult byte counter by 8
+	ADD	A,A			;
+	ADD	A,A			;
+	ADD	A,A			;
+	LD	B,A			;
+	XOR	A			; Init loop counter
+LDIVL1	DEC	B			; Dec byte counter
+	JR	Z,LDIVJ1		; exit loop when zero
+	INC	A			; Inc counter
 	RET	Z			; Overflow: return
 
 	ADD	HL,HL			; Shift left divisor, low word
@@ -184,7 +203,7 @@ LDIVL1	INC	A			; Inc counter
 
 	JR	NC,LDIVL1		; Loop while not past left bound
 
-	EXX				;
+LDIVJ1:	EXX				;
 	RR	H			; Restore scaled divisor, high word
 	RR	L			;
 	LD	B,H			; Scaled divisor to BC, high word
