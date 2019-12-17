@@ -11,13 +11,13 @@
 ;-----------------------------------------------------------------------------
 ; 	Title
 $TITLE	MACRO
-	DB	'Pi Spigot - Ver:1.00 - Sep-2019'
+	DB	'Pi Spigot - Ver:1.10 - Dec-2019'
 	ENDM
 
 ;-----------------------------------------------------------------------------
 ; 	Settings
 DEBUG	EQU	0			; Debug mode
-NDIGITS	EQU	1000			; Number of digits to compute (4837 max)
+NDIGITS	EQU	1000			; Number of digits to compute (9674 max)
 
 ;-----------------------------------------------------------------------------
 
@@ -169,11 +169,11 @@ DIVJ2:	SRL	B			; Shift right divisor
 ;	Long Div HL by DE
 LDIVHLDE:
 ;	Scale divisor
-	XOR	A			;
+	XOR	A			; Init loop counter
 	EX	DE,HL			; Divisor to HL, low word
 	EXX				;
 	EX	DE,HL			; idem, high word
-	EXX
+	EXX				;
 LDIVL1	INC	A			; Inc counter
 	RET	Z			; Overflow: return
 
@@ -184,7 +184,7 @@ LDIVL1	INC	A			; Inc counter
 
 	JR	NC,LDIVL1		; Loop while not past left bound
 
-LDIVJ1:	EXX				;
+	EXX				;
 	RR	H			; Restore scaled divisor, high word
 	RR	L			;
 	LD	B,H			; Scaled divisor to BC, high word
@@ -240,14 +240,15 @@ LDIVJ2:	EXX				;
 	RET				; Done
 
 ;-----------------------------------------------------------------------------
-;	Long MUL HL,DE
-LMULHLDE:
+;	Long MUL HL,DE (condition: HL' == 0)
+;	HL':HL := HL * DE':DE
+LMULHLDE16:
 	CALL	LLDBCHL			; Move multiplicand HL':HL to BC':BC
 	LD	HL,0			; Product, HL':HL := 0
 	EXX				;
 	LD	HL,0			;
 	EXX				;
-	LD	A,32			; Loop counter
+	LD	A,16			; Loop counter, only 16 loops because HL' == 0
 LMULL1:	EXX				; Multiplicand, BC':BC >>= 1
 	SRL	B			;
 	RR	C			;
@@ -330,11 +331,6 @@ OneLoop:
 	LD	BC,16			;
 	ADD	HL,BC			; I += 16 (6 safety digits)
 	LD	(I_),HL			; update I
-	EXX				;
-	LD	BC,0			; idem, high word
-	ADC	HL,BC			;
-	LD	(I_+2),HL		;
-	EXX				;
 
 ;	IF ( I > LEN ) THEN I := LEN;
 	EX	DE,HL			; I to DE
@@ -345,8 +341,7 @@ OneLoop:
 	JR	NC,ILELEN		; if LEN < I then
 	LD	HL,(LEN_)		;   I := LEN
 ILELEN:	LD	(I_),HL			; update I
-	ADD	HL,HL			; I *= 4
-	ADD	HL,HL			;
+	ADD	HL,HL			; I *= 2
 	LD	DE,ARRAY		; ARRAY origin
 	ADD	HL,DE			; ARRAY + 2 * I
 	PUSH	HL			;
@@ -355,7 +350,6 @@ ILELEN:	LD	(I_),HL			; update I
 ;	RES := 0;
 	LD	HL,0			; Clear RES
 	LD	(RES_),HL		;
-	LD	(RES_+2),HL		;
 
 ;	REPEAT
 REPT1:
@@ -363,17 +357,16 @@ REPT1:
 	LD	HL,(RES_)		; RES to HL
 	LD	DE,(I_)			; I to DE
 	EXX				;
-	LD	HL,(RES_+2)		;
+	LD	HL,0			; HL' := DE' := 0
 	LD	DE,0			;   low words only
 	EXX				;
-	CALL	LMULHLDE		; HL':HL := HL * DE == RES * I
+	CALL	LMULHLDE16		; HL':HL := HL * DE == RES * I
 	EX	DE,HL			; to DE':DE (low word)
-	LD	L,(IX+0)		; HL := ARRAY[I]
+	LD	L,(IX+0)		; HL := ARRAY[I] (16 bits)
 	LD	H,(IX+1)		;
 	EXX				;
 	EX	DE,HL			; to DE':DE (high word)
-	LD	L,(IX+2)		;
-	LD	H,(IX+3)		;
+	LD	HL,0			; HL' := 0 because ARRAY[I] < 10000H
 	EXX				;
 	CALL	LMULHL10		; HL':HL *= 10 		( == 10 * ARRAY[I] )
 	CALL	LADDHLDE		; HL':HL += DE':DE 	( += RES * I )
@@ -393,18 +386,11 @@ REPT1:
 ;	A[I] := X MOD K;
 	CALL	LDIVHLDE		; HL /= DE 		( X / ( 2*I - 1 ) )
 	LD	(RES_),HL		; RES := quotient
-	LD	(IX+0),E		; ARRAY[I] := remainder
+	LD	(IX+0),E		; ARRAY[I] := remainder (16 bits)
 	LD	(IX+1),D		;
-	EXX				;
-	LD	(RES_+2),HL		; idem, high word
-	LD	(IX+2),E		;
-	LD	(IX+3),D		;
-	EXX
 
 ;	I := I - 1;
 	DEC	IX			; Dec ARRAY pointer
-	DEC	IX			;
-	DEC	IX			;
 	DEC	IX			;
 	LD	HL,(I_)			; I -= 1
 	DEC	HL			;
@@ -445,19 +431,16 @@ Spigot:
 	INC	HL			; HL := LEN + 1
 	LD	B,H			; Loop counter, BC := HL == LEN + 1
 	LD	C,L			;
-	ADD	HL,HL			; HL := ( LEN + 1 ) * 4
-	ADD	HL,HL			;
+	ADD	HL,HL			; HL := ( LEN + 1 ) * 2
 	LD	DE,ARRAY		; DE := ARRAY origin
-	ADD	HL,DE			; DE += ( LEN + 1 ) * 4
+	ADD	HL,DE			; DE += ( LEN + 1 ) * 2
 	EXX				;
 	LD	HL,0			; Save SP to HL'
 	ADD	HL,SP			;
 	EXX				;
 	LD	SP,HL			; SP := HL
-	LD	HL,0			;
 	LD	DE,2			; 2 to write
-SPL01:	PUSH	HL			; Write 0 at SP ; SP -= 4
-	PUSH	DE			; Write 2 at SP ; SP -= 4
+SPL01:	PUSH	DE			; Write 2 at SP ; SP -= 2
 	DEC	BC			; Dec loop counter
 	LD	A,B			;
 	OR	C			;
@@ -511,9 +494,7 @@ FORJ:
 	LD	HL,(RES_)		; RES == 10 * digit + remainder
 	LD	DE,10			;
 	CALL	DIVHLDE			; RES /= 10 (in HL with H == 0)
-	LD	(ARRAY+4),DE		; Remainder in DE to ARRAY[1]
-	LD	DE,0			;
-	LD	(ARRAY+6),DE		;
+	LD	(ARRAY+2),DE		; Remainder in DE to ARRAY[1]
 
 ;	IF Q = 9 THEN INC(NINES);
 	LD	A,L			; Examine Digit
@@ -665,11 +646,11 @@ N_	DS	2			;
 LEN$	EQU	$-IY0			; LEN = array length
 LEN_	DS	2			;
 I$	EQU	$-IY0			; I sub loop counter
-I_	DS	4			;
+I_	DS	2			;
 J$	EQU	$-IY0			; J main loop counter
 J_	DS	2			;
 RES$	EQU	$-IY0			; RES = quotient
-RES_	DS	4			;
+RES_	DS	2			;
 NINES$	EQU	$-IY0			; NINES = 9s counter
 NINES_	DS	1			;
 PREDIG$	EQU	$-IY0			; PREDIG = digit preceding 9s
@@ -686,9 +667,8 @@ TIME_	DS	3			; Hold the time
 
 	DS	1 + low not $		; go to next 256 bytes boundary
 ARRAY	EQU	$
-ARREND	EQU	4*NDIGITS*10/3+ARRAY	; ensure that enough memory is avalilable
+ARREND	EQU	2*NDIGITS*10/3+ARRAY	; ensure that enough memory is available
 
 	ASSERT	ARREND < 0FFF0H
 
 	END	BOOT
-
